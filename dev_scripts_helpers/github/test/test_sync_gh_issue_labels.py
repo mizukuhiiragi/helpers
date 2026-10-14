@@ -19,19 +19,19 @@ _LOG = logging.getLogger(__name__)
 
 class Test_sync_gh_issue_labels1(hunitest.TestCase):
 
-    @pytest.mark.skip("Enable after HelpersTask753")
     @umock.patch.dict(os.environ, {"GITHUB_TEST_TOKEN": "fake_token"})
-    @umock.patch(
-        "dev_scripts_helpers.github.dockerized_sync_gh_issue_labels.github.Github"
-    )
-    def test1(self, mock_github_cls: umock.Mock) -> None:
+    @umock.patch("dev_scripts_helpers.github.dockerized_sync_gh_issue_labels.github")
+    def test1(self, mock_github: umock.Mock) -> None:
         """
         Test that the dockerized executable reads the input file, performs the
         necessary operations, and writes the backup file in the git root
         directory.
         """
+        # Set up mock GitHub client and classes.
+        mock_github_cls = umock.Mock()
+        mock_github.Github = mock_github_cls
         # Set up mock labels.
-        dshgdsgil.Label("bug", "Something isn't working", "f29513")
+        input_label = dshgdsgil.Label("bug", "Something isn't working", "f29513")
         mock_label = umock.Mock()
         mock_label.name = input_label.name
         mock_label.color = input_label.color
@@ -56,7 +56,7 @@ class Test_sync_gh_issue_labels1(hunitest.TestCase):
             input_args["in_dir_name"], "test_gh_issues_labels.yml"
         )
         git_root_dir = hgit.get_client_root(False)
-        backup_file_name = "tmp.labels.causify-ai.helpers.yaml"
+        backup_file_name = f"tmp.labels.{input_args['owner']}.{input_args['repo']}.yaml"
         backup_file_path = os.path.join(git_root_dir, backup_file_name)
         # Remove backup file if it exists.
         if os.path.exists(backup_file_path):
@@ -79,10 +79,13 @@ class Test_sync_gh_issue_labels1(hunitest.TestCase):
                 "--dry_run",
             ],
         ):
-            parser = dshgsgila._parse()
-            dshgsgila._main(parser)
+            parser = dshgdsgil._parse()
+            dshgdsgil._main(parser)
         # Check that the backup file exists.
         self.assertTrue(
             os.path.exists(backup_file_path),
             msg="Backup file was not created.",
         )
+        # Clean up created backup file.
+        if os.path.exists(backup_file_path):
+            os.remove(backup_file_path)
